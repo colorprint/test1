@@ -320,47 +320,47 @@ function recoIndex(){ // ближайшая разблокировка, инач
     if(B.gte(S.coins,cost)){const mp=MINING.generators[i].baseProd*E.milestoneMult(MINING,u+1);const r=mp/B.toNum(cost);if(r>br){br=r;bi=i;}}}
   return bi;}
 
-// ---- render ----
+// ---- render (diffed: мутируем DOM только при изменении → не глотаем тапы по кнопкам) ----
+function setHTML(el,v){ if(el.__h!==v){el.__h=v;el.innerHTML=v;} }
+function setTxt(el,v){ if(el.__t!==v){el.__t=v;el.textContent=v;} }
+function setDis(el,v){ if(el.disabled!==v) el.disabled=v; }
+function setSt(el,k,v){ if(el.style[k]!==v) el.style[k]=v; }
 function render(){
-  document.getElementById('coins').textContent=B.fmt(S.coins);
+  setTxt(document.getElementById('coins'),B.fmt(S.coins));
   const prod=E.production(S,MINING,gameT),boost=gameT<S.boostUntil;
-  document.getElementById('rate').innerHTML=`<b>${B.fmt(prod)}</b> ${T.per}${boost?' ⏩x2':''}`;
+  setHTML(document.getElementById('rate'),`<b>${B.fmt(prod)}</b> ${T.per}${boost?' ⏩x2':''}`);
   const gm=E.globalMult(S,MINING);
-  document.getElementById('invLbl').textContent=S.P>0?`💼 ${S.P} ${T.inv} · ×${gm.toFixed(2)}`:'';
-  document.getElementById('tag').textContent=T.tag+deposit;
-  // boost pill
-  const bb=document.getElementById('boostBtn');if(boost){bb.classList.add('on');bb.textContent=T.boostOn;}else{bb.classList.remove('on');bb.textContent=T.boost;}
-  // tap contextual
+  setTxt(document.getElementById('invLbl'),S.P>0?`💼 ${S.P} ${T.inv} · ×${gm.toFixed(2)}`:'');
+  setTxt(document.getElementById('tag'),T.tag+deposit);
+  const bb=document.getElementById('boostBtn');bb.classList.toggle('on',boost);setTxt(bb,boost?T.boostOn:T.boost);
   const tb=document.getElementById('tapBtn');const small=B.toNum(prod)>MINING.tapGain0*8;tb.classList.toggle('small',small);tb.classList.toggle('big',!small);
-  // elevator position by deepest unlocked
   let deepest=-1;S.gens.forEach((g,i)=>{if(g.units>0)deepest=i;});
-  document.getElementById('elev').style.top=(deepest<0?2:((deepest+0.5)/MINING.generators.length)*100)+'%';
-  // reco
+  setSt(document.getElementById('elev'),'top',(deepest<0?2:((deepest+0.5)/MINING.generators.length)*100)+'%');
   const reco=recoIndex();
   MINING.generators.forEach((g,i)=>{const el=rows[i],u=S.gens[i].units,cost=E.genCost(MINING,i,u),aff=B.gte(S.coins,cost),unlocked=u>0;
     el.classList.toggle('locked',!unlocked&&!aff);el.classList.toggle('reco',i===reco);
-    el.querySelector('.cnt').textContent=u;
+    setTxt(el.querySelector('.cnt'),String(u));
     const per=g.baseProd*E.milestoneMult(MINING,u)*gm*(boost?MINING.rewardBoostMult:1);
-    el.querySelector('.sub').textContent=unlocked?(B.fmt(B.mulN(B.fromNum(u),per))+' '+T.per):T.locked;
-    const btn=el.querySelector('.buy');btn.disabled=!aff;
+    setTxt(el.querySelector('.sub'),unlocked?(B.fmt(B.mulN(B.fromNum(u),per))+' '+T.per):T.locked);
+    const btn=el.querySelector('.buy');setDis(btn,!aff);
     const lbl=unlocked?T.buy:T.unlock;const suff=(unlocked&&buyMode!=='1')?(' '+(buyMode==='M'?'Max':'x'+buyMode)):'';
-    btn.innerHTML=`${lbl}${suff}<b>${B.fmt(cost)}</b>`;});
-  // upgrade
+    setHTML(btn,`${lbl}${suff}<b>${B.fmt(cost)}</b>`);});
   const uc=E.upgradeCost(S,MINING),ub=document.getElementById('upBtn');
-  if(uc){ub.style.display='';ub.disabled=!B.gte(S.coins,uc);ub.innerHTML=`${T.up} <b style="font-weight:600;font-size:11px">${B.fmt(uc)}</b>`;}else ub.style.display='none';
-  // prestige + progress
+  if(uc){setSt(ub,'display','');setDis(ub,!B.gte(S.coins,uc));setHTML(ub,`${T.up} <b style="font-weight:600;font-size:11px">${B.fmt(uc)}</b>`);}else setSt(ub,'display','none');
   const pg=E.prestigeGain(S,MINING),unlockLt=MINING.prestigeUnlockLifetime;
   const canPres=B.gte(S.runEarned,B.fromNum(unlockLt))&&pg>=1;
-  const pb=document.getElementById('presBtn');pb.disabled=!canPres;pb.innerHTML=canPres?`${T.pres} <b style="font-weight:600">+${pg}</b>`:T.pres;
+  const pb=document.getElementById('presBtn');setDis(pb,!canPres);setHTML(pb,canPres?`${T.pres} <b style="font-weight:600">+${pg}</b>`:T.pres);
   const frac=Math.min(1,Math.log10(Math.max(1,B.toNum(S.runEarned)+1))/Math.log10(unlockLt));
-  document.getElementById('pbar').style.width=(canPres?100:frac*100)+'%';
-  document.getElementById('pbarLbl').textContent=canPres?T.ready:`${T.depthTo}: ${Math.floor(frac*100)}%`;
+  setSt(document.getElementById('pbar'),'width',(canPres?100:frac*100)+'%');
+  setTxt(document.getElementById('pbarLbl'),canPres?T.ready:`${T.depthTo}: ${Math.floor(frac*100)}%`);
 }
 
 // ---- loop ----
-let acc=0,lastFrame=performance.now()/1000;
+let acc=0,lastFrame=performance.now()/1000,uiAcc=0;
 function frame(){const t=performance.now()/1000;let dt=t-lastFrame;lastFrame=t;if(dt>0){if(dt>1)dt=1;gameT+=dt;E.tick(S,MINING,dt,gameT);}
-  if(cheerT&&gameT>cheerT){heroImg.style.transform='';cheerT=0;}render();acc+=dt;if(acc>=5){acc=0;save();}requestAnimationFrame(frame);}
+  if(cheerT&&gameT>cheerT){heroImg.style.transform='';cheerT=0;}
+  uiAcc+=dt;if(uiAcc>=0.08){uiAcc=0;render();}
+  acc+=dt;if(acc>=5){acc=0;save();}requestAnimationFrame(frame);}
 
 // ---- daily / offline ----
 function checkDaily(){const d=dayIndex();if(dailyDay===d)return;if(dailyDay!==-1){const prod=E.production(S,MINING,gameT);
@@ -368,4 +368,9 @@ function checkDaily(){const d=dayIndex();if(dailyDay===d)return;if(dailyDay!==-1
 function handleOffline(ms){if(!ms)return;const dt=(Date.now()-ms)/1000;if(dt<MINING.minAccrualIntervalSec)return;
   const g=E.applyOffline(S,MINING,dt,gameT,false);if(B.isZero(g))return;pendingOffline=g;
   document.getElementById('offAmt').textContent=B.fmt(g);document.getElementById('offTitle').textContent=T.back;document.getElementById('offText').textContent=T.backTxt;
-  document.getElementById('offOk').textContent=T.take;document.getEle
+  document.getElementById('offOk').textContent=T.take;document.getElementById('offX2').textContent=T.dbl;document.getElementById('offlineModal').classList.add('show');}
+
+// ---- boot ----
+const savedMs=load();updMute();checkDaily();handleOffline(savedMs);render();requestAnimationFrame(frame);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)save();});window.addEventListener('pagehide',save);
+</script></body></html>
